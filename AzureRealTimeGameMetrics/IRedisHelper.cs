@@ -5,21 +5,23 @@ namespace AzureRealTimeGameMetrics
 {
     public interface IRedisHelper
     {
-        Task RegisterUid(string uid);
+        Task RegisterUidAsync(string uid);
 
-        Task<long> GetInstallSourceDAU(string installSource);
+        Task<long> GetInstallSourceDAUAsync(string installSource);
 
         IEnumerable<string> GetInstallSources();
-        Task<long> GetDAU();
+        Task<long> GetDAUAsync();
 
-        Task<long> GetPayingUsersDAU();
+        Task<long> GetPayingUsersDAUAsync();
 
-        Task<float> GetRevenue();
+        Task<float> GetRevenueAsync();
 
-        Task RegisterInstallSource(string uid, string installSource);
+        Task RegisterInstallSourceAsync(string uid, string installSource);
 
-        Task RegisterPayment(string uid, float paymentAmount);
+        Task RegisterPaymentAsync(string uid, float paymentAmount);
 
-        Task ResetStats();
+        Task<DailyStats> GetDailyStatsAsync();
+
+        Task ResetStatsAsync();
     }
 }

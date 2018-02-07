@@ -5,8 +5,6 @@ using Microsoft.Azure.WebJobs.ServiceBus;
 using System.Diagnostics;
 using Newtonsoft.Json;
 using StackExchange.Redis;
-using System;
-using System.Configuration;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
@@ -49,12 +47,12 @@ namespace AzureRealTimeGameMetrics
                     continue;
                 }
 
-                redisTasks.Add(redis.RegisterUid(uid));
+                redisTasks.Add(redis.RegisterUidAsync(uid));
 
                 string installSource = msg.install_source?.ToString();
                 if (!string.IsNullOrEmpty(installSource))
                 {
-                    redisTasks.Add(redis.RegisterInstallSource(uid, installSource));
+                    redisTasks.Add(redis.RegisterInstallSourceAsync(uid, installSource));
                 }
 
                 string type = msg.type?.ToString();
@@ -65,7 +63,7 @@ namespace AzureRealTimeGameMetrics
                     float.TryParse(msg.amount?.ToString(), style, CultureInfo.InvariantCulture, out paymentAmount);
                     if (paymentAmount > 0.0f)
                     {
-                        redisTasks.Add(redis.RegisterPayment(uid, paymentAmount));
+                        redisTasks.Add(redis.RegisterPaymentAsync(uid, paymentAmount));
                     }
                 }
             }

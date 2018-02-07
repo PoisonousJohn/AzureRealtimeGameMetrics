@@ -11,38 +11,16 @@ namespace AzureRealTimeGameMetrics
 {
     public static class GetDailyStats
     {
+        /// <summary>
+        /// This is just a debug method to see the picture
+        /// </summary>
+        /// <param name="req"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
         [FunctionName("GetDailyStats")]
         public static async Task<HttpResponseMessage> Run([HttpTrigger(AuthorizationLevel.Function, "get", Route = "stats")]HttpRequestMessage req, TraceWriter log)
         {
-            var redis = RedisHelper.Default;
-            var dau = redis.GetDAU();
-            var payingUsers = redis.GetPayingUsersDAU();
-            var revenue = redis.GetRevenue();
-            var installSources = redis.GetInstallSources();
-            var dauPerInstallSource = installSources
-                 .Select(i => new KeyValuePair<string, Task<long>>(
-                    i, 
-                    redis.GetInstallSourceDAU(i)
-                ))
-                .ToDictionary(i => i.Key, i => i.Value);
-            await Task.WhenAll(
-                dau,
-                payingUsers,
-                revenue
-            );
-            await Task.WhenAll(dauPerInstallSource.Values);
-
-            var result = new
-            {
-                dau = dau.Result,
-                payingUsersDau = payingUsers.Result,
-                revenue = revenue.Result,
-                arpu = revenue.Result / dau.Result,
-                arppu = revenue.Result / payingUsers.Result,
-                dauPerInstallSource = dauPerInstallSource.ToDictionary(i => i.Key, i => i.Value.Result)
-            };
-            return req.CreateResponse(HttpStatusCode.OK, result, "application/json");
-
+            return req.CreateResponse(HttpStatusCode.OK, await RedisHelper.Default.GetDailyStatsAsync(), "application/json");
         }
     }
 }

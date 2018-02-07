@@ -29,12 +29,12 @@ namespace AzureRealTimeGameMetrics
             _redis = redis;
         }
 
-        public async Task RegisterUid(string uid)
+        public async Task RegisterUidAsync(string uid)
         {
             await _redis.SetAddAsync(UIDS_KEY, uid);
         }
 
-        public Task<long> GetInstallSourceDAU(string installSource)
+        public Task<long> GetInstallSourceDAUAsync(string installSource)
         {
             return _redis.SetLengthAsync(installSource);
         }
@@ -43,17 +43,17 @@ namespace AzureRealTimeGameMetrics
         {
             return _redis.SetScan(INSTALL_SOURCES_KEY).Select(i => i.ToString());
         }
-        public async Task<long> GetDAU()
+        public async Task<long> GetDAUAsync()
         {
             return await _redis.SetLengthAsync(UIDS_KEY);
         }
 
-        public async Task<long> GetPayingUsersDAU()
+        public async Task<long> GetPayingUsersDAUAsync()
         {
             return await _redis.SetLengthAsync(PAYING_UIDS_KEY);
         }
 
-        public async Task<float> GetRevenue()
+        public async Task<float> GetRevenueAsync()
         {
             var revenue = await _redis.StringGetAsync(REVENUE_KEY);
             var stringRevenue = revenue.ToString();
@@ -65,12 +65,12 @@ namespace AzureRealTimeGameMetrics
             NumberStyles style = NumberStyles.AllowDecimalPoint;
             if (!float.TryParse(stringRevenue, style, CultureInfo.InvariantCulture, out result))
             {
-                throw new System.Exception($"Failed to parse float string {stringRevenue}");
+                throw new Exception($"Failed to parse float string {stringRevenue}");
             }
             return result;
         }
 
-        public async Task RegisterInstallSource(string uid, string installSource)
+        public async Task RegisterInstallSourceAsync(string uid, string installSource)
         {
             await Task.WhenAll(
                     _redis.SetAddAsync(INSTALL_SOURCES_KEY, installSource),
@@ -78,7 +78,7 @@ namespace AzureRealTimeGameMetrics
             );
         }
 
-        public async Task RegisterPayment(string uid, float paymentAmount)
+        public async Task RegisterPaymentAsync(string uid, float paymentAmount)
         {
             if (paymentAmount > 0.0f)
             {
@@ -89,7 +89,7 @@ namespace AzureRealTimeGameMetrics
             }
         }
 
-        public Task ResetStats()
+        public Task ResetStatsAsync()
         {
             var tasks = new List<Task>();
             foreach (var source in GetInstallSources())
@@ -103,6 +103,42 @@ namespace AzureRealTimeGameMetrics
             tasks.Add(_redis.KeyDeleteAsync(INSTALL_SOURCES_KEY));
 
             return Task.WhenAll(tasks);
+        }
+
+            public async Task<DailyStats> GetDailyStatsAsync()
+        {
+            var redis = RedisHelper.Default;
+            var dau = redis.GetDAUAsync();
+            var payingUsers = redis.GetPayingUsersDAUAsync();
+            var revenue = redis.GetRevenueAsync();
+            var installSources = redis.GetInstallSources();
+            var dauPerInstallSource = installSources
+                 .Select(i => new KeyValuePair<string, Task<long>>(
+                    i,
+                    redis.GetInstallSourceDAUAsync(i)
+                ))
+                .ToDictionary(i => i.Key, i => i.Value);
+            await Task.WhenAll(
+                dau,
+                payingUsers,
+                revenue
+            );
+            await Task.WhenAll(dauPerInstallSource.Values);
+
+            return new DailyStats
+            {
+                total = new TotalDailyStats
+                {
+                    time = DateTime.UtcNow,
+                    dau = (int)dau.Result,
+                    payingUsersDau = (int)payingUsers.Result,
+                    revenue = revenue.Result,
+                    arpu = dau.Result > 0 ? revenue.Result / dau.Result : 0.0f,
+                    arppu = payingUsers.Result > 0 ? revenue.Result / payingUsers.Result : 0.0f,
+                },
+                dauPerInstallSource = dauPerInstallSource.ToDictionary(i => i.Key, i => (int)i.Value.Result)
+            };
+
         }
 
         private readonly IDatabase _redis;
